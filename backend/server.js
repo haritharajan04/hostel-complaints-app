@@ -1,9 +1,9 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
+const path = require('path');
 require('dotenv').config();
-
-const Complaint = require('./models/Complaint');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -12,19 +12,34 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('MongoDB Connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+let db;
+
+// Initialize SQLite database
+async function initDb() {
+  db = await open({
+    filename: path.join(__dirname, 'database.sqlite'),
+    driver: sqlite3.Database
+  });
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS complaints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      category TEXT NOT NULL,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  console.log('SQLite Database Connected');
+}
+
+initDb().catch(err => console.error('Database connection error:', err));
 
 // Routes
 // Get all complaints
 app.get('/api/complaints', async (req, res) => {
   try {
-    const complaints = await Complaint.find().sort({ createdAt: -1 });
+    const complaints = await db.all('SELECT * FROM complaints ORDER BY createdAt DESC');
     res.json(complaints);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -40,13 +55,12 @@ app.post('/api/complaints', async (req, res) => {
       return res.status(400).json({ error: 'Title and description are required' });
     }
 
-    const newComplaint = new Complaint({
-      title,
-      description,
-      category: category || 'Other'
-    });
+    const result = await db.run(
+      'INSERT INTO complaints (title, description, category) VALUES (?, ?, ?)',
+      [title, description, category || 'Other']
+    );
 
-    const savedComplaint = await newComplaint.save();
+    const savedComplaint = await db.get('SELECT * FROM complaints WHERE id = ?', result.lastID);
     res.status(201).json(savedComplaint);
   } catch (err) {
     res.status(500).json({ error: err.message });

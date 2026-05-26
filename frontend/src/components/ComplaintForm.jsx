@@ -9,8 +9,18 @@ export default function ComplaintForm({ onComplaintAdded }) {
   const [message, setMessage] = useState('');
 
   const handleTranscription = (text) => {
+    if (!text || typeof text !== 'string') {
+      setMessage("Transcription failed or returned empty format.");
+      return;
+    }
+    
     // Basic heuristics to determine title vs description
     const cleanedText = text.trim();
+    if (!cleanedText) {
+      setMessage("We couldn't hear you! Please make sure your microphone isn't muted in Windows, and speak loudly.");
+      return;
+    }
+
     if (!title) {
       // Create a short title from the first few words
       const words = cleanedText.split(' ');
