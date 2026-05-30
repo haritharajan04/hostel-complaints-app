@@ -3,11 +3,12 @@ import { pipeline, env } from '@xenova/transformers';
 // Disable local models, since we want to download from Hugging Face hub
 env.allowLocalModels = false;
 
-// Disable WASM SIMD on iOS devices to prevent transcription from crashing
-if (typeof navigator !== 'undefined' && /iP(hone|od|ad)/.test(navigator.userAgent)) {
-    if (env.backends?.onnx?.env?.wasm) {
-        env.backends.onnx.env.wasm.simd = false;
-    }
+// Force single-threaded compatibility mode to bypass SharedArrayBuffer / Cross-Origin Isolation limits on mobile browsers over ngrok
+env.backends.onnx.wasm.numThreads = 1;
+env.backends.onnx.wasm.simd = false;
+if (env.backends?.onnx?.env?.wasm) {
+    env.backends.onnx.env.wasm.numThreads = 1;
+    env.backends.onnx.env.wasm.simd = false;
 }
 
 // Available Whisper models (larger = more accurate):
@@ -60,8 +61,31 @@ self.addEventListener('message', async (event) => {
             }
             
             if (!(audio instanceof Float32Array)) {
-                console.warn('[Worker] Audio is not Float32Array, converting...', audio.constructor.name);
-                audio = new Float32Array(audio);
+                console.warn('[Worker] Audio is not Float32Array, converting...', audio.constructor?.name || typeof audio);
+                if (audio && typeof audio === 'object') {
+                    if (audio.buffer && audio.buffer instanceof ArrayBuffer) {
+                        audio = new Float32Array(audio.buffer);
+                    } else if (Array.isArray(audio)) {
+                        audio = new Float32Array(audio);
+                    } else if (audio.length !== undefined) {
+                        const newArray = new Float32Array(audio.length);
+                        for (let i = 0; i < audio.length; i++) {
+                            newArray[i] = audio[i] || 0;
+                        }
+                        audio = newArray;
+                    } else {
+                        // Plain object representation with key-value string indices
+                        const keys = Object.keys(audio).filter(k => !isNaN(k));
+                        const length = keys.length;
+                        const newArray = new Float32Array(length);
+                        for (let i = 0; i < length; i++) {
+                            newArray[i] = audio[i] || 0;
+                        }
+                        audio = newArray;
+                    }
+                } else {
+                    audio = new Float32Array(audio);
+                }
             }
             
             if (audio.length === 0) {
@@ -108,8 +132,6 @@ self.addEventListener('message', async (event) => {
             const result = await transcriber(audio, {
                 chunk_length_s: 30,
                 stride_length_s: 5,
-                language: 'english',
-                task: 'transcribe',
             });
             
             console.log('[Worker] Transcription result:', result);

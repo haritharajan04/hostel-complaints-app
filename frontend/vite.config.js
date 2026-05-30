@@ -11,6 +11,19 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: [
       'zips-easing-unranked.ngrok-free.dev'
-    ]
+    ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false
+      },
+      '/socket.io': {
+        target: 'http://localhost:5000',
+        ws: true,
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 })

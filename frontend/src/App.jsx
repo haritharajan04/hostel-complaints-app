@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Shield } from 'lucide-react';
+import { io } from 'socket.io-client';
 import ComplaintForm from './components/ComplaintForm';
 
 // Admin imports
@@ -8,6 +9,7 @@ import Login from './pages/admin/Login';
 import AdminLayout from './layouts/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import ComplaintsList from './pages/admin/ComplaintsList';
+import BrandStyleboard from './pages/BrandStyleboard';
 
 // Dedicated Student Panel View preserving original voice integration logic
 const StudentPanel = () => {
@@ -17,7 +19,7 @@ const StudentPanel = () => {
 
   const fetchComplaints = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/complaints');
+      const response = await fetch('/api/complaints');
       if (!response.ok) throw new Error('Failed to fetch complaints');
       const data = await response.json();
       setComplaints(data);
@@ -32,6 +34,24 @@ const StudentPanel = () => {
 
   useEffect(() => {
     fetchComplaints();
+
+    // Establish Socket.IO real-time client connection
+    const socket = io();
+
+    socket.on('complaint:created', (newComplaint) => {
+      setComplaints(prev => {
+        if (prev.some(c => c.id === newComplaint.id)) return prev;
+        return [newComplaint, ...prev];
+      });
+    });
+
+    socket.on('complaint:updated', (updatedComplaint) => {
+      setComplaints(prev => prev.map(c => c.id === updatedComplaint.id ? updatedComplaint : c));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const handleComplaintAdded = (newComplaint) => {
@@ -52,12 +72,20 @@ const StudentPanel = () => {
           </h1>
           <p className="text-slate-400 text-sm mt-2">Smart Offline Complaint Logging System</p>
           
-          <Link 
-            to="/admin/login" 
-            className="absolute top-0 right-0 flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-400 border border-blue-500/20 hover:border-blue-500/40 bg-blue-500/5 px-3 py-1.5 rounded-lg transition-all"
-          >
-            <Shield className="w-3.5 h-3.5" /> Admin Console
-          </Link>
+          <div className="absolute top-0 right-0 flex gap-2">
+            <Link 
+              to="/styleboard" 
+              className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-500 hover:text-indigo-400 border border-indigo-500/20 hover:border-indigo-500/40 bg-indigo-500/5 px-3 py-1.5 rounded-lg transition-all"
+            >
+              🎨 Brand Board
+            </Link>
+            <Link 
+              to="/admin/login" 
+              className="flex items-center gap-1 text-[11px] font-bold text-blue-500 hover:text-blue-400 border border-blue-500/20 hover:border-blue-500/40 bg-blue-500/5 px-3 py-1.5 rounded-lg transition-all"
+            >
+              <Shield className="w-3.5 h-3.5" /> Admin Console
+            </Link>
+          </div>
         </header>
 
         <main>
@@ -131,6 +159,9 @@ function App() {
       <Routes>
         {/* Student View */}
         <Route path="/" element={<StudentPanel />} />
+        
+        {/* Brand Showcase */}
+        <Route path="/styleboard" element={<BrandStyleboard />} />
         
         {/* Admin Login Route */}
         <Route path="/admin/login" element={<Login />} />

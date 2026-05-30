@@ -118,6 +118,22 @@ const ComplaintDetailsModal = ({ complaintId, onClose, onSave, api }) => {
               <p className="text-slate-350 text-sm mt-3 leading-relaxed bg-slate-950/60 p-4 rounded-xl border border-slate-850">
                 {complaint.description}
               </p>
+
+              {complaint.fileUrl && (
+                <div className="mt-4 space-y-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Attached Evidence Attachment</span>
+                  <div className="w-full max-h-60 rounded-xl overflow-hidden border border-slate-850 bg-slate-950/80">
+                    <img 
+                      src={`http://localhost:5000${complaint.fileUrl}`} 
+                      alt="Student uploaded attachment" 
+                      className="w-full h-full object-contain max-h-60"
+                      onError={(e) => {
+                        e.target.src = complaint.fileUrl;
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Student & Location Meta */}

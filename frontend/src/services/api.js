@@ -1,7 +1,7 @@
 // Centralized API Integration Service
 // Supports local localStorage fallback to allow mock edits to persist across page refreshes.
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = '/api';
 
 // Initial high-quality mock data for testing
 const INITIAL_MOCK_COMPLAINTS = [
